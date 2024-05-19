@@ -1,5 +1,4 @@
 asientos = [
-
     [" ", "A", "  B", "  C", "", "  D", "  E", "  F"],
     ["1", 2, 0, 2, 2, 0, 2],
     ["2", 2, 0, 2, 2, 0, 2],
@@ -8,6 +7,7 @@ asientos = [
     ["5", 2, 0, 2, 2, 0, 2],
     ["6", 2, 0, 2, 2, 0, 2],
 ]
+
 rojos = []
 asientos_vacios = []
 
@@ -42,7 +42,6 @@ def imprimir_mapa():
         else:
             print(fila[0])  # Imprimir la línea de separación
 
-
 def buscar_asiento(asientos, valor_buscado):
     for i, fila in enumerate(asientos[1:], start=1):  # Comienza en 1 para omitir los encabezados
         for j, valor in enumerate(fila[1:], start=1):  # Comienza en 1 para omitir el número de la fila
@@ -50,51 +49,74 @@ def buscar_asiento(asientos, valor_buscado):
                 return (i, j)  # Retornar índices como (número de fila, columna)
     return None  # Retorna None si no encuentra el valor
 
-
-def buscar_vacios(asientos, valor_buscado):
+def buscar_vacios(asientos, valor_buscado, personas):
     for i, fila in enumerate(asientos[1:], start=1):  # Comienza en 1 para omitir los encabezados
         for j, valor in enumerate(fila[1:], start=1):  # Comienza en 1 para omitir el número de la fila
             if (valor == valor_buscado) and ((j + personas) < 8):
-                asientos_vacios.append((i,j))
+                asientos_vacios.append((i, j))
 
+def logica_asiento(personas, indice_asiento):
+    x, y = indice_asiento[0], indice_asiento[1]
+    for iterador in range(personas):
+        asientos[x][y] = 1
+        y += 1
+        if iterador == personas - 1:
+            if y < len(asientos[x]):  # Verificar límites antes de acceder a asientos[x][y]
+                if asientos[x][y] in {0, 1, 2}:
+                    asientos[x][y] = 0
+            else:
+                print("papas fritas")
 
-def logica_asiento(personas):
-    for fila in asientos[1:]:
-        for inicio in range(1, len(fila) - personas + 1):
-            if all((fila[inicio + i] == 2 or (fila[inicio + i] == 0 and personas > 1)) for i in range(personas)):
-                if inicio > 1 and fila[inicio - 1] != 0:
-                    continue
-
-                for i in range(personas):
-                    fila[inicio + i] = 1
-                if inicio + personas < len(fila) and fila[inicio + personas] == 2:
-                    fila[inicio + personas] = 0
-                if inicio + personas + 1 < len(fila) and fila[inicio + personas + 1] == 0:
-                    fila[inicio + personas + 1] = 2
-                return True
-    print("No hay suficiente espacio disponible.")
-    return False
-
+def encontrar_rojo():
+    for i, fila in enumerate(asientos[1:], start=1):
+        for j, valor in enumerate(fila[1:], start=1):
+            if valor == 0:  # valor 0 representa un asiento rojo
+                rojos.append((i, j))  # Guardamos la fila y la columna
 
 def verificar_rojo():
-    for fila in asientos[1:]:
-        for i in range(1, len(fila)):
-            if fila[i] == 1:
-                if i + 1 < len(fila) and fila[i + 1] == 2:
-                    fila[i + 1] = 0  # Cambio a rojo si el siguiente es blanco
+    encontrar_rojo()
+    for x_r, y_r in rojos:
+        y_r += 1  # Verificamos el siguiente asiento en la misma fila
+        if y_r < len(asientos[x_r]):  # Aseguramos que no salimos de rango
+            if asientos[x_r][y_r] == 0:
+                asientos[x_r][y_r] = 2  # Cambiamos a blanco
+        else:
+            print("papas")
 
-
-while True:
-    imprimir_mapa()
+def asiento():
     try:
-        personas = int(input("¿Cuántos boletos desea comprar? "))
-        if personas > 5 or personas <= 0:
-            print("No se pueden comprar esa cantidad de boletos.")
-            continue
+        while True:
+            imprimir_mapa()
+            personas = int(input("¿Cuántos boletos desea comprar? "))
+            if personas > 5 or personas <= 0:
+                print("No se pueden comprar esa cantidad de boletos.")
+                break
+            else:
+                buscar_vacios(asientos, 2, personas)
+                if asientos_vacios:
+                    indice_asiento = asientos_vacios[0]
+                    print(asientos_vacios)
+                    print(indice_asiento)
+                    asientos_vacios.clear()
 
-        if not logica_asiento(personas):
-            continue
+                    if indice_asiento:
+                        print(f"El primer asiento disponible se encuentra en la fila {indice_asiento[0]}, columna {indice_asiento[1]}")
+                    else:
+                        print("No se encontró un asiento disponible.")
+                    asiento_disponible = buscar_asiento(asientos, 2)  # Busca asientos disponibles (valor 2)
+                    if asiento_disponible:
+                        print(f"Asiento disponible en fila {asiento_disponible[0]}, columna {asiento_disponible[1]}.")
+                        logica_asiento(personas, indice_asiento)
+                        verificar_rojo()
+                        rojos.clear()
+                    else:
+                        print("No hay asientos disponibles.")
+                    verificar_rojo()
+                    rojos.clear()
+                else:
+                    print("No hay suficientes asientos disponibles.")
+    except Exception as e:
+        print(f"Ocurrió un error: {e}")
 
-        verificar_rojo()  # Verificar y actualizar asientos rojos si es necesario
-    except ValueError:
-        print("Por favor, ingrese un número válido de boletos.")
+# Llamar a la función asiento para ejecutar la lógica
+asiento()
