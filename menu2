@@ -106,17 +106,6 @@ aeropuertos = {
 }
 
 
-def cargar_vuelos():
-    try:
-        with open('vuelos.json', 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        # Si no existe devuelve un diccionario vacío
-        return {}
-    except json.decoder.JSONDecodeError:
-        # Si está vacio devuelve un diccionario vacío
-        return {}
-vuelos = cargar_vuelos()
 
 
 def actualizar_disponibilidad():
@@ -342,34 +331,36 @@ def creacion_vuelos():
 def registrar_ventas(origen, destino, id_vuelo, asientos_seleccionados):
     file_path = 'historial.json'
     
-    # Si el archivo no existe, crearlo con una lista vacía
+    # Verificar y crear el archivo si no existe con un diccionario vacío
     if not os.path.exists(file_path):
-        print(f"Archivo {file_path} no encontrado. Creando un nuevo archivo.")
         with open(file_path, 'w') as file:
             json.dump({}, file)
-    
+        print(f"Archivo {file_path} creado con un diccionario vacío porque no existía.")
+
+    # Intentar leer el archivo existente o manejar errores si el archivo está corrupto
     try:
-        # Leer el contenido actual del archivo JSON
         with open(file_path, 'r') as file:
             data = json.load(file)
-    except json.JSONDecodeError:
-        print("Error de decodificación JSON. Inicializando un nuevo archivo.")
+        if not isinstance(data, dict):
+            raise ValueError("El contenido del archivo no es un diccionario.")
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        print(f"Error al leer {file_path}: {e}. Inicializando data como diccionario vacío.")
         data = {}
 
-    # Verificar si ya existe una entrada para el vuelo
+    # Agregar o actualizar la entrada para el vuelo
     if id_vuelo not in data:
         data[id_vuelo] = {"origen": origen, "destino": destino, "asientos": []}
-    
-    # Agregar los asientos seleccionados al vuelo correspondiente
     data[id_vuelo]["asientos"].extend(asientos_seleccionados)
-    
-    # Escribir los datos de vuelta al archivo JSON
+
+    # Escribir los cambios en el archivo
     try:
         with open(file_path, 'w') as file:
             json.dump(data, file, indent=4)
-        print("Se ha realizado la compra y se ha registrado correctamente.")
-    except Exception as e:
-        print(f"Error al escribir en el archivo: {e}")
+    except IOError as e:
+        print(f"Error al escribir en el archivo {file_path}: {e}")
+
+    print("Se a echo la venta.")
+
 
 def asiento(id_vuelo):
     try:
@@ -483,7 +474,6 @@ def verificar_rojo():
         else:
             a = 0
 
-
 def cargar_vuelos():
     try:
         with open('vuelos.json', 'r') as file:
@@ -504,8 +494,6 @@ def buscar_vuelos():
     if not all(isinstance(vuelo, dict) for vuelo in vuelos):
         print("Error: no todos los elementos en la lista de vuelos son diccionarios.")
         return
-
-    print(vuelos)  # Debug: imprimir los datos de vuelos para verificar el formato
 
     print("\nSeleccione el aeropuerto de origen:")
     for i, (codigo, aeropuerto) in enumerate(aeropuertos.items(), start=1):
