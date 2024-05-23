@@ -1,0 +1,911 @@
+import json
+import os
+import time
+import copy
+import datetime
+from datetime import datetime, timedelta
+
+asientos = [
+    [" ", "A", "  B", "  C", "", "  D", "  E", "  F"],
+    ["1", 2, 0, 2, 2, 0, 2],
+    ["2", 2, 0, 2, 2, 0, 2],
+    ["3", 2, 0, 2, 2, 0, 2],
+    ["4", 2, 0, 2, 2, 0, 2],
+    ["5", 2, 0, 2, 2, 0, 2],
+    ["6", 2, 0, 2, 2, 0, 2],
+]
+
+rojos = []
+asientos_vacios = []
+
+
+def cargar_usuarios():
+    with open('usuarios.json', 'r') as file:
+        return json.load(file)
+
+
+def guardar_usuarios(usuarios_datos):
+    with open('usuarios.json', 'w') as file:
+        json.dump(usuarios_datos, file, indent=4)
+
+
+def registro_usuarios():
+    usuarios_datos = cargar_usuarios()
+
+    while True:
+        numero_cedula = str(input("\nDigite su número de cédula: ")).strip()
+        if numero_cedula.isdigit() and len(numero_cedula) == 9:
+            if numero_cedula in usuarios_datos['usuarios']:
+                print("La cédula ya está registrada. Por favor, ingrese una nueva cédula.")
+                continue  # Volver al inicio del bucle
+            else:
+                nombre = input("Digite el nombre del usuario: ")
+                while True:
+                    try:
+                        edad = int(input(f"{nombre} digite su edad del usuario: "))
+                        if edad < 0:
+                            print("La edad no puede ser negativa.")
+                            continue
+                        elif edad < 18:
+                            print("El usuario debe ser mayor de 18 años.")
+                            continue
+                        break
+                    except ValueError:
+                        print("Ingrese un número entero para la edad.")
+
+                clave = input("Digite la clave del usuario: ")
+                usuarios_datos['usuarios'][numero_cedula] = {"nombre": nombre, "edad": edad, "clave": clave}
+                guardar_usuarios(usuarios_datos)
+                print("Persona registrada exitosamente.")
+                break
+        else:
+            print("\n¡Error!")
+            print("El número de cédula debe tener nueve dígitos y debe ser de carácter numérico")
+
+
+def inicio_sesion():
+    usuarios_datos = cargar_usuarios()
+    numero_cedula = input("\nDigite su número de cédula: ").strip()
+    clave = input("Digite su clave: ")
+
+    if numero_cedula in usuarios_datos['usuarios']:
+        if usuarios_datos['usuarios'][numero_cedula]['clave'] == clave:
+            print("Inicio de sesión exitoso.")
+            print("¡Bienvenido Usuario! Meter resto de funcionalidades acá para el usuarios")
+            menu_usuario()
+        else:
+            print("La clave es incorrecta.")
+    elif numero_cedula == usuarios_datos['admin'].get('cedula'):
+        if clave == usuarios_datos['admin'].get('clave'):
+            print("Inicio de sesión exitoso.")
+            print("¡Bienvenido Administrador! Meter el resto de funcionalidades de admi acá")
+            menu_admi()
+        else:
+            print("La clave de administrador es incorrecta.")
+    else:
+        print("El número de cédula no está registrado.")
+
+
+# Acá se almacena una lista de al menos 10 aerolíneas con la siguiente información
+aerolineas = {
+    "AAL": "American Airlines",
+    "DAL": "Delta Air Lines",
+    "UAL": "United Airlines",
+    "SWA": "Southwest Airlines",
+    "JAL": "Japan Airlines",
+    "ANA": "All Nippon Airways",
+    "BAW": "British Airways",
+    "LUF": "Lufthansa",
+    "AFR": "Air France",
+    "QTR": "Qatar Airways"
+}
+
+#  Debe estar almacenada una lista de al menos 10 aeropuertos de países diferentes con la siguiente información:
+aeropuertos = {
+    "SJO": {"id_aeropuerto": "SJO", "nombre": "Aeropuerto Internacional Juan Santamaría", "pais": "Costa Rica"},
+    "LHR": {"id_aeropuerto": "LHR", "nombre": "Heathrow Airport", "pais": "Reino Unido"},
+    "CDG": {"id_aeropuerto": "CDG", "nombre": "Charles de Gaulle Airport", "pais": "Francia"},
+    "HND": {"id_aeropuerto": "HND", "nombre": "Haneda Airport", "pais": "Japón"},
+    "SYD": {"id_aeropuerto": "SYD", "nombre": "Sydney Airport", "pais": "Australia"},
+    "DXB": {"id_aeropuerto": "DXB", "nombre": "Dubai International Airport", "pais": "Emiratos Árabes Unidos"},
+    "SIN": {"id_aeropuerto": "SIN", "nombre": "Singapore Changi Airport", "pais": "Singapur"},
+    "CAN": {"id_aeropuerto": "CAN", "nombre": "Guangzhou Baiyun International Airport", "pais": "China"},
+    "MEX": {"id_aeropuerto": "MEX", "nombre": "Mexico City International Airport", "pais": "México"},
+    "ICN": {"id_aeropuerto": "ICN", "nombre": "Incheon International Airport", "pais": "Corea del Sur"}
+}
+
+
+def cargar_vuelos():
+    try:
+        with open('vuelos.json', 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        # Si no existe devuelve un diccionario vacío
+        return {}
+    except json.decoder.JSONDecodeError:
+        # Si está vacio devuelve un diccionario vacío
+        return {}
+
+vuelos = cargar_vuelos()
+
+
+
+def actualizar_disponibilidad():
+    ahora = datetime.now()
+    cambios = False
+    try:
+        with open('vuelos.json', 'r') as file:
+            vuelos = json.load(file).get('vuelos', [])
+        with open('aviones.json', 'r') as file:
+            aviones = json.load(file)
+        with open('tripulaciones.json', 'r') as file:
+            tripulaciones = json.load(file)
+    except FileNotFoundError:
+        print("Uno o más archivos no se encontraron.")
+        return
+    except json.decoder.JSONDecodeError:
+        return
+
+    # Actualizar estados
+    for vuelo in vuelos:
+        fecha_hora_salida = datetime.strptime(vuelo['Fecha_y_hora_salida'], "%d-%m-%Y %H:%M:%S")
+        if ahora >= fecha_hora_salida + timedelta(hours=24):
+            id_aerolinea = vuelo['Id_de_la_aerolinea']
+            id_avion = vuelo['Id_del_avion']
+            print(f"Actualizando disponibilidad para el vuelo {vuelo['Id_del_vuelo']} de la aerolínea {id_aerolinea}")
+
+            # Marcar avión como disponible
+            for avion in aviones.get(id_aerolinea, []):
+                if avion['id_avion'] == id_avion and avion['estado'] == 'No disponible':
+                    avion['estado'] = 'Disponible'
+                    cambios = True
+                    print(f"Avión {id_avion} de la aerolínea {id_aerolinea} marcado como disponible.")
+
+            # Marcar tripulación como disponible
+            for rol, id in vuelo['Id_de_tripulacion'].items():
+                for tripulante in tripulaciones.get(id_aerolinea, []):
+                    if tripulante['cedula'] == id and tripulante['estado'] == 'No disponible':
+                        tripulante['estado'] = 'Disponible'
+                        cambios = True
+                        print(f"Tripulante {id} ({rol}) de la aerolínea {id_aerolinea} marcado como disponible.")
+
+    # Guardar cambios solo de ser es necesario
+    if cambios:
+        with open('aviones.json', 'w') as file:
+            json.dump(aviones, file, indent=4)
+        with open('tripulaciones.json', 'w') as file:
+            json.dump(tripulaciones, file, indent=4)
+        print("Disponibilidad actualizada.")
+    else:
+        print("No se necesitaron actualizaciones.")
+
+
+def creacion_vuelos():
+    actualizar_disponibilidad()
+    # Cargar info de vuelos si hay
+    try:
+        with open('vuelos.json', 'r') as file:
+            data = json.load(file)
+            vuelos = data.get("vuelos", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        vuelos = []
+
+    # Cargar info de tripulaciones desde el archivo JSON
+    try:
+        with open('tripulaciones.json', 'r') as file:
+            tripulaciones = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("Error: No se pudo cargar el archivo tripulaciones.json")
+        return
+
+    # Cargar info de aviones desde el archivo JSON
+    try:
+        with open('aviones.json', 'r') as file:
+            aviones = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("Error: No se pudo cargar el archivo aviones.json")
+        return
+
+    # Mostrar menú para elegir aerolínea
+    print("Seleccione la aerolínea:")
+    aerolineas_lista = list(aerolineas.items())
+    for i, (codigo, nombre) in enumerate(aerolineas_lista, start=1):
+        print(f"{i}. {codigo} : {nombre} ")
+    while True:
+        try:
+            opcion_aerolinea = int(input("Seleccione el número de la aerolínea: "))
+            if 1 <= opcion_aerolinea <= len(aerolineas_lista):
+                aerolinea = aerolineas_lista[opcion_aerolinea - 1][0]
+                break
+            else:
+                print("Opción no válida, intente de nuevo.")
+        except ValueError:
+            print("Entrada no válida, por favor ingrese un número.")
+
+    while True:
+        try:
+            precio = float(input("Ingrese el precio del vuelo: "))
+            if precio < 0:
+                print("El precio no puede ser negativo")
+                continue
+            elif precio >= 40:
+                break
+            else:
+                print("El precio debe ser de al menos 40. Intente de nuevo.")
+        except ValueError:
+            print("Entrada no válida, por favor ingrese un valor numérico válido.")
+
+    # Mostrar menú para elegir aeropuerto de salida
+    print("\nSeleccione el aeropuerto de salida:")
+    aeropuertos_lista = list(aeropuertos.items())
+    for i, (codigo, aeropuerto) in enumerate(aeropuertos_lista, start=1):
+        print(f"{i}. {codigo} : {aeropuerto['nombre']} - {aeropuerto['pais']}")
+    while True:
+        try:
+            opcion_aeropuerto_salida = int(input("Seleccione el número del aeropuerto de salida: "))
+            if 1 <= opcion_aeropuerto_salida <= len(aeropuertos_lista):
+                aeropuerto_salida = aeropuertos_lista[opcion_aeropuerto_salida - 1][0]
+                break
+            else:
+                print("Opción no válida, intente de nuevo.")
+        except ValueError:
+            print("Entrada no válida, por favor ingrese un número.")
+
+    # Mostrar menú para elegir aeropuerto de llegada
+    print("\nSeleccione el aeropuerto de llegada:")
+    for i, (codigo, aeropuerto) in enumerate(aeropuertos_lista, start=1):
+        print(f"{i}. {codigo} : {aeropuerto['nombre']} - {aeropuerto['pais']}")
+
+    while True:
+        try:
+            opcion_aeropuerto_llegada = int(input("Seleccione el número del aeropuerto de llegada: "))
+            aeropuerto_llegada = aeropuertos_lista[opcion_aeropuerto_llegada - 1][0]
+            if aeropuerto_llegada == aeropuerto_salida:
+                print(
+                    "El aeropuerto de llegada y salida no puede ser el mismo. Por favor, seleccione un aeropuerto de llegada diferente.")
+                continue
+            break
+        except ValueError:
+            print("Entrada no válida, por favor ingrese un número.")
+        except IndexError:
+            print("Opción no válida, intente de nuevo.")
+
+    fecha_salida = input("Ingrese la fecha y hora de salida (formato DD-MM-YYYY HH:MM): ").strip()
+    fecha_llegada = input("Ingrese la fecha y hora de llegada (formato DD-MM-YYYY HH:MM): ").strip()
+
+    try:
+        fecha_salida = datetime.strptime(fecha_salida, "%d-%m-%Y %H:%M")
+        fecha_llegada = datetime.strptime(fecha_llegada, "%d-%m-%Y %H:%M")
+    except ValueError:
+        print("Formato de fecha y hora incorrecto. Use DD-MM-YYYY HH:MM.")
+        return
+
+    if fecha_llegada <= fecha_salida:
+        print("La fecha de llegada debe ser posterior a la fecha de salida.")
+        return
+
+    duracion = str(fecha_llegada - fecha_salida)  # Duracion como string
+
+    avion_disponible = None
+    for avion in aviones.get(aerolinea, []):
+        if avion['estado'] == 'Disponible':
+            avion_disponible = avion
+            break
+
+    tripulacion_disponible = []
+    for tripulante in tripulaciones.get(aerolinea, []):
+        if tripulante['estado'] == 'Disponible':
+            tripulacion_disponible.append(tripulante)
+            if len(tripulacion_disponible) >= 2:
+                break
+
+    if not avion_disponible and len(tripulacion_disponible) < 2:
+        print("No hay aviones ni suficiente tripulación disponibles para esta aerolínea.")
+        return
+    elif not avion_disponible:
+        print("No hay aviones disponibles para esta aerolínea.")
+        return
+    elif len(tripulacion_disponible) < 2:
+        print("No hay suficiente tripulación disponible para esta aerolínea.")
+        return
+
+    avion_disponible['estado'] = 'No disponible'
+    for tripulante in tripulacion_disponible:
+        tripulante['estado'] = 'No disponible'
+
+    # Guardar el cambio de estado de las tripulaciones en el archivo tripulaciones.json
+    with open('tripulaciones.json', 'w') as file:
+        json.dump(tripulaciones, file, indent=4)
+
+    # Guardar el cambio de estado de los aviones en el archivo aviones.json
+    with open('aviones.json', 'w') as file:
+        json.dump(aviones, file, indent=4)
+
+    id_vuelo = f"V{len(vuelos) + 1:04d}"
+    id_piloto = tripulacion_disponible[0]['cedula']
+    id_servicio_al_cliente = tripulacion_disponible[1]['cedula']
+
+    # Guardar la info con esa estructura en vuelos.json
+    vuelo = {
+        "Id_del_vuelo": id_vuelo,
+        "Id_de_la_aerolinea": aerolinea,
+        "Precio": precio,
+        "Fecha_y_hora_salida": fecha_salida.strftime("%d-%m-%Y %H:%M:%S"),
+        "Id_del_aeropuerto_de_salida": aeropuerto_salida,
+        "Fecha_y_hora_llegada": fecha_llegada.strftime("%d-%m-%Y %H:%M:%S"),
+        "Id_del_aeropuerto_de_llegada": aeropuerto_llegada,
+        "Duracion": duracion,
+        "Id_del_avion": avion_disponible['id_avion'],
+        "Id_de_tripulacion": {
+            "Id_piloto": id_piloto,
+            "Id_servicio_al_cliente": id_servicio_al_cliente
+        }
+    }
+
+    vuelos.append(vuelo)
+
+    # Guardar la información actualizada de los vuelos en el archivo
+    with open('vuelos.json', 'w') as file:
+        json.dump({"vuelos": vuelos}, file, indent=4)
+
+    print("Vuelo creado exitosamente.")
+
+
+def cargar_vuelos():
+    try:
+        with open('vuelos.json', 'r') as file:
+            data = json.load(file)
+            return data['vuelos']
+    except FileNotFoundError:
+        print("El archivo de vuelos no se encuentra.")
+        return []
+    except json.JSONDecodeError:
+        print("Error en la decodificación del JSON.")
+        return []
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##################################################################################################################
+# Corregir esta seccion para vuelos intermedios y asigancion de asientos
+def cargar_asientos_ocupados(id_vuelo):
+    file_path = 'historial_asientos..json'
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        print("Datos cargados correctamente.")
+        if id_vuelo in data:  # Verifica si el vuelo actual está en el historial_asientos.
+            global asientos
+            asientos = data[id_vuelo]['asientos']             
+        else:
+            print(f"No se encontraron asientos ocupados previamente para el vuelo {id_vuelo}.")
+    except FileNotFoundError:
+        print(f"No se encontró el archivo {file_path}. Creando uno nuevo.")
+        with open(file_path, 'w') as file:
+            json.dump({}, file)
+    except json.JSONDecodeError:
+       
+        data = {}
+
+
+def buscar_vuelos():
+    global asientos, info_venta, info_asiento
+    vuelos = cargar_vuelos()
+    if not vuelos:
+        print("No hay vuelos creados")
+        return
+
+    # Mostrar menú para seleccionar aeropuerto de origen
+    while True:
+        print("\nSeleccione el aeropuerto de origen:")
+        for i, (codigo, aeropuerto) in enumerate(aeropuertos.items(), start=1):
+            print(f"{i}. {codigo} - {aeropuerto['nombre']} ({aeropuerto['pais']})")
+        try:
+            origen = int(input("Elija una opción: "))
+            aeropuerto_origen = list(aeropuertos.keys())[origen - 1]
+            break
+        except (ValueError, IndexError):
+            print("Entrada inválida. Por favor, elija una opción correcta del menú.")
+
+    # Mostrar menú para seleccionar aeropuerto de destino
+    while True:
+        print("\nSeleccione el aeropuerto de destino:")
+        for i, (codigo, aeropuerto) in enumerate(aeropuertos.items(), start=1):
+            print(f"{i}. {codigo} - {aeropuerto['nombre']} ({aeropuerto['pais']})")
+        try:
+            destino = int(input("Elija una opción: "))
+            aeropuerto_destino = list(aeropuertos.keys())[destino - 1]
+            if aeropuerto_origen == aeropuerto_destino:
+                print(
+                    "El aeropuerto de origen y destino no pueden ser el mismo. Por favor, elija un destino diferente.")
+                continue
+            break
+        except (ValueError, IndexError):
+            print("Entrada inválida. Por favor, elija una opción correcta del menú.")
+
+    fechas_disponibles = set()
+    for vuelo in vuelos:
+        if vuelo['Id_del_aeropuerto_de_salida'] == aeropuerto_origen:
+            try:
+                fecha_s = datetime.strptime(vuelo['Fecha_y_hora_salida'], "%d-%m-%Y %H:%M:%S").date()
+                fechas_disponibles.add(fecha_s)
+            except ValueError as e:
+                print(f"Error de formato en la fecha del vuelo: {e}")
+
+    if not fechas_disponibles:
+        print("No hay vuelos disponibles desde el aeropuerto de origen seleccionado.")
+        return
+
+    print(f"Fechas disponibles desde el aeropuerto de origen {aeropuerto_origen}:")
+    for fecha in sorted(fechas_disponibles):
+        print(fecha.strftime("%d-%m-%Y"))
+
+    fecha_salida = input("Ingrese la fecha de salida (formato DD-MM-YYYY): ")
+    try:
+        fecha_salida = datetime.strptime(fecha_salida, "%d-%m-%Y")
+    except ValueError:
+        print("Formato de fecha incorrecto. Use DD-MM-YYYY.")
+        return
+
+    # Filtrar vuelos directos y con escalas
+    vuelos_directos = [v for v in vuelos if v['Id_del_aeropuerto_de_salida'] == aeropuerto_origen and v[
+        'Id_del_aeropuerto_de_llegada'] == aeropuerto_destino and datetime.strptime(v['Fecha_y_hora_salida'],
+                                                                                    "%d-%m-%Y %H:%M:%S").date() == fecha_salida.date()]
+
+    # Buscar vuelos
+    vuelos_escala = []
+    for vuelo1 in vuelos:
+        if vuelo1['Id_del_aeropuerto_de_salida'] == aeropuerto_origen and datetime.strptime(
+                vuelo1['Fecha_y_hora_salida'], "%d-%m-%Y %H:%M:%S").date() == fecha_salida.date():
+            for vuelo2 in vuelos:
+                if (vuelo1['Id_del_aeropuerto_de_llegada'] == vuelo2['Id_del_aeropuerto_de_salida'] and
+                        vuelo1['Id_del_aeropuerto_de_llegada'] != aeropuerto_destino and
+                        vuelo2['Id_del_aeropuerto_de_llegada'] == aeropuerto_destino):
+                    fecha_llegada_vuelo1 = datetime.strptime(vuelo1['Fecha_y_hora_llegada'], "%d-%m-%Y %H:%M:%S")
+                    fecha_salida_vuelo2 = datetime.strptime(vuelo2['Fecha_y_hora_salida'], "%d-%m-%Y %H:%M:%S")
+                    # Cambiar tiempo para tomar un vuelo a otro hours = 2, en este caso 15 minutos para tomar otro avión
+                    if fecha_llegada_vuelo1 + timedelta(minutes=15) <= fecha_salida_vuelo2:
+                        vuelos_escala.append((vuelo1, vuelo2))
+
+    # Calcular costo y tiempo total de vuelos
+    resultados_vuelos = []
+    for vuelo in vuelos_directos:
+        nombre_aerolinea = aerolineas.get(vuelo['Id_de_la_aerolinea'], "Nombre no disponible")
+        origen = f"{vuelo['Id_del_aeropuerto_de_salida']}: {aeropuertos[vuelo['Id_del_aeropuerto_de_salida']]['nombre']} ({aeropuertos[vuelo['Id_del_aeropuerto_de_salida']]['pais']})"
+        destino = f"{vuelo['Id_del_aeropuerto_de_llegada']}: {aeropuertos[vuelo['Id_del_aeropuerto_de_llegada']]['nombre']} ({aeropuertos[vuelo['Id_del_aeropuerto_de_llegada']]['pais']})"
+        resultados_vuelos.append((nombre_aerolinea, origen, destino, vuelo['Fecha_y_hora_salida'],
+                                  vuelo['Fecha_y_hora_llegada'], vuelo['Duracion'], vuelo['Precio']))
+
+    for v1, v2 in vuelos_escala:
+        precio_total = v1['Precio'] + v2['Precio']
+        duracion_total = (datetime.strptime(v2['Fecha_y_hora_llegada'], "%d-%m-%Y %H:%M:%S") - datetime.strptime(
+            v1['Fecha_y_hora_salida'], "%d-%m-%Y %H:%M:%S"))
+        nombre_aerolinea = aerolineas.get(v1['Id_de_la_aerolinea'], "Nombre no disponible")
+        origen = f"{v1['Id_del_aeropuerto_de_salida']}: {aeropuertos[v1['Id_del_aeropuerto_de_salida']]['nombre']} ({aeropuertos[v1['Id_del_aeropuerto_de_salida']]['pais']})"
+        destino = f"{v2['Id_del_aeropuerto_de_llegada']}: {aeropuertos[v2['Id_del_aeropuerto_de_llegada']]['nombre']} ({aeropuertos[v2['Id_del_aeropuerto_de_llegada']]['pais']})"
+        resultados_vuelos.append((nombre_aerolinea, origen, destino, v1['Fecha_y_hora_salida'],
+                                  v2['Fecha_y_hora_llegada'], str(duracion_total), precio_total))
+
+
+
+    # Mostrar resultados
+    if not vuelos_directos and not vuelos_escala:
+        print("No hay vuelos disponibles para las fechas y destinos seleccionados.")
+    else:
+        print("\nVuelos disponibles:")
+        for i, vuelo in enumerate(vuelos_directos, start=1):
+            print(
+                f"{i}. Directo - Aerolínea: {aerolineas[vuelo['Id_de_la_aerolinea']]}, Origen: {vuelo['Id_del_aeropuerto_de_salida']} a Destino: {vuelo['Id_del_aeropuerto_de_llegada']}, Salida: {vuelo['Fecha_y_hora_salida']}, Llegada: {vuelo['Fecha_y_hora_llegada']}, Duración: {vuelo['Duracion']}, Precio: ${vuelo['Precio']:.2f}")
+
+        # Enumerar los vuelos con escala
+        for j, (v1, v2) in enumerate(vuelos_escala, start=len(vuelos_directos) + 1):
+            print(
+                f"{j}. Con escala - Aerolínea: {aerolineas[v1['Id_de_la_aerolinea']]}, Origen: {v1['Id_del_aeropuerto_de_salida']} a Escala: {v1['Id_del_aeropuerto_de_llegada']} y luego a Destino: {v2['Id_del_aeropuerto_de_llegada']}, Salida: {v1['Fecha_y_hora_salida']}, Llegada final: {v2['Fecha_y_hora_llegada']}, Duración total: {str(datetime.strptime(v2['Fecha_y_hora_llegada'], "%d-%m-%Y %H:%M:%S") - datetime.strptime(v1['Fecha_y_hora_salida'], "%d-%m-%Y %H:%M:%S"))}, Precio total: ${(v1['Precio'] + v2['Precio']):.2f}")
+
+        info_venta = []
+        info_asiento = []
+        id_vuelo2 = ""
+        eleccion = int(input("Seleccione un vuelo para más detalles: ")) - 1
+        # Manejar la elección del usuario y cargar/gestionar asientos
+        if eleccion < len(vuelos_directos):
+            vuelo_elegido = vuelos_directos[eleccion]
+            id_vuelo = vuelo_elegido['Id_del_vuelo']
+            print(
+            f"Ha seleccionado el vuelo de {aerolineas[vuelo_elegido['Id_de_la_aerolinea']]} desde {vuelo_elegido['Id_del_aeropuerto_de_salida']} a {vuelo_elegido['Id_del_aeropuerto_de_llegada']}, salida {vuelo_elegido['Fecha_y_hora_salida']} y llegada {vuelo_elegido['Fecha_y_hora_llegada']} con una duración de {vuelo_elegido['Duracion']} y un costo de ${vuelo_elegido['Precio']:.2f}.")
+        else:
+            vuelo_elegido = vuelos_escala[eleccion - len(vuelos_directos)]  # Elige el primer segmento del vuelo con escala
+            id_vuelo = vuelo_elegido[0]['Id_del_vuelo']
+            id_vuelo2 = vuelo_elegido[1]['Id_del_vuelo']
+            print(
+            f"Ha seleccionado el vuelo de {aerolineas[vuelo_elegido[0]['Id_de_la_aerolinea']]} desde {vuelo_elegido[0]['Id_del_aeropuerto_de_salida']} a {vuelo_elegido[1]['Id_del_aeropuerto_de_llegada']}, salida {vuelo_elegido[0]['Fecha_y_hora_salida']} y llegada {vuelo_elegido[1]['Fecha_y_hora_llegada']} con una duración de {vuelo_elegido[0]['Duracion']+vuelo_elegido[1]['Duracion']} y un costo de ${vuelo_elegido[0]['Precio']+vuelo_elegido[1]['Precio']:.2f}.")
+
+        info_venta.append("usuario")
+        info_venta.append((id_vuelo,id_vuelo2))
+        
+        id_ventas()
+        obtener_hora_actual()
+        if id_vuelo2 == "":
+            info_venta.append((vuelo_elegido['Id_del_aeropuerto_de_salida'],vuelo_elegido['Id_del_aeropuerto_de_llegada']))
+            info_venta.append((vuelo_elegido['Duracion'],vuelo_elegido['Precio']))
+            insertar_vuelo(vuelo_elegido['Id_del_aeropuerto_de_salida'], vuelo_elegido['Id_del_aeropuerto_de_llegada'],id_vuelo)
+            ventas()
+            
+            
+            
+        else:
+            info_venta.append((vuelo_elegido[0]['Id_del_aeropuerto_de_salida'], vuelo_elegido[1]['Id_del_aeropuerto_de_llegada']))
+            info_venta.append((vuelo_elegido[0]['Duracion']+vuelo_elegido[1]['Duracion'],vuelo_elegido[0]['Precio']+vuelo_elegido[1]['Precio']))
+            insertar_vuelo(vuelo_elegido[0]['Id_del_aeropuerto_de_salida'], vuelo_elegido[0]['Id_del_aeropuerto_de_llegada'],id_vuelo)
+            limpiar_asientos()
+            insertar_vuelo(vuelo_elegido[1]['Id_del_aeropuerto_de_salida'], vuelo_elegido[1]['Id_del_aeropuerto_de_llegada'], id_vuelo2)
+            ventas()
+            
+            
+        limpiar_asientos()
+        # insertar_venta(id_vuelo, id_vuelo2)
+def id_ventas():
+    global id_venta
+    try:
+        with open('historial.json', 'r') as file:
+            data = json.load(file)
+            historial_venta = data.get("ventas", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        historial_venta = []
+    id_venta = f"Venta{len(historial_venta) + 1:04d}"
+    info_venta.append(id_venta)
+
+
+def ventas():
+    file_path = 'historial.json'
+    # Intentar leer el archivo existente o inicializarlo si está corrupto o no existe
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            ventas_ = data.get("ventas", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        print(f"Error al leer {file_path}. Inicializando data como diccionario vacío.")
+        data = {}
+        ventas_ = []
+
+    codigos_asientos = []
+    escala = ""
+    for x in range(len(info_asiento)):
+        fila, columna = info_asiento[x]
+        agrega = f"{fila}-{columna}-{info_venta[1][0]}-{info_venta[1][1]}"
+        codigos_asientos.append(agrega)
+        
+    if info_venta[1][1] == "":
+        escala = "N/A"
+    else:
+        escala = info_venta[1][0] + "-" + info_venta[1][1]
+
+    # Agregar o actualizar la entrada para el vuelo
+    venta = {
+        "Identificador": info_venta[2],
+        "Cedula_comprador": info_venta[0],
+        "Id_salida": info_venta[4][0],
+        "Id_llegada": info_venta[4][1],
+        "Id_escala": escala,
+        "Hora_compra": info_venta[3],
+        "Cantidad_de_boletos": len(info_asiento),
+        "Id_asientos": codigos_asientos,
+        "Duracion": info_venta[5][0],
+        "Precio": info_venta[5][1],
+    }
+    ventas_.append(venta)
+
+    # Guardar la información actualizada en el archivo
+    with open('historial.json', 'w') as file:
+        json.dump({"ventas": ventas_}, file, indent=4)
+
+        
+        
+def obtener_hora_actual():
+    ahora = datetime.now()
+    hora_actual = ahora.strftime('%H:%M:%S')
+    info_venta.append(hora_actual)
+# Trabajar de acá hacia arriba
+# #################################################################################################################################
+# matriz////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+def insertar_vuelo(origen, destino, id_vuelo):
+   
+    file_path = 'historial_asientos..json'
+    
+    # Verificar y crear el archivo si no existe con un diccionario vacío
+    if not os.path.exists(file_path):
+        with open(file_path, 'w') as file:
+            json.dump({}, file)
+        print(f"Archivo {file_path} creado con un diccionario vacío porque no existía.")
+
+    # Intentar leer el archivo existente o manejar errores si el archivo está corrupto
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        if not isinstance(data, dict):
+            raise ValueError("El contenido del archivo no es un diccionario.")
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        data = {}
+    asiento(id_vuelo)    
+    data[id_vuelo] = {
+    "origen": origen,
+    "destino": destino,
+    "asientos": copy.deepcopy(asientos)
+}  # Reemplaza la matriz existente
+    
+
+    # Escribir los cambios en el archivo
+    try:
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+    except IOError as e:
+        print(f"Error al escribir en el archivo {file_path}: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def imprimir_mapa():
+    # Encabezados de columna
+    print("  ", end="")
+    for header in asientos[0]:
+        if header != " ":
+            print(f" {header} ", end="")
+        else:
+            print("   ", end="")
+
+    print()  # Salto de línea después de los encabezados
+
+    # Imprimir los asientos
+    for fila in asientos[1:]:
+        print(" ")
+        if fila[0].isdigit():  # Comprobar si la fila contiene números de asiento
+            print(f" {fila[0]:2} ", end="")  # Número de fila con ajuste de formato
+            for i, valor in enumerate(fila[1:]):
+                if i == 3:  # Espacio entre las alas
+                    print("  ", end="")  # Espacio para la columna central vacía
+                if valor == 0:
+                    print(" \033[91m███\033[0m ", end="")  # Rojo
+                elif valor == 1:
+                    print(" \033[92m███\033[0m ", end="")  # Verde
+                elif valor == 2:
+                    print(" \033[97m███\033[0m ", end="")  # Blanco
+                elif valor == 3:
+                    print(" \033[90m███\033[0m ", end="")  # Gris
+            print()  # Nueva línea al final de cada fila
+        else:
+            print(fila[0])  # Imprimir la línea de separación
+
+
+def buscar_asiento(asientos, valor_buscado):
+    for i, fila in enumerate(asientos[1:], start=1):  # Comienza en 1 para omitir los encabezados
+        for j, valor in enumerate(fila[1:], start=1):  # Comienza en 1 para omitir el número de la fila
+            if valor == valor_buscado:
+                return (i, j)  # Retornar índices como (número de fila, columna)
+    return None  # Retorna None si no encuentra el valor
+
+
+def buscar_vacios(asientos, valor_buscado, personas):
+    for i, fila in enumerate(asientos[1:], start=1):  # Comienza en 1 para omitir los encabezados
+        for j, valor in enumerate(fila[1:], start=1):  # Comienza en 1 para omitir el número de la fila
+            if (valor == valor_buscado) and ((j + personas) < 8):
+                asientos_vacios.append((i, j))
+                
+
+
+def logica_asiento(personas, indice_asiento):
+    global info_asiento
+    x, y = indice_asiento[0], indice_asiento[1]
+    for iterador in range(personas):
+        asientos[x][y] = 1
+        info_asiento.append((x, y))
+        y += 1
+        if iterador == personas - 1:
+            if y < len(asientos[x]):  # Verificar límites antes de acceder a asientos[x][y]
+                if asientos[x][y] in {0, 1, 2}:
+                    asientos[x][y] = 0
+            else:
+                print("")
+    
+
+
+def encontrar_rojo():
+    for i, fila in enumerate(asientos[1:], start=1):
+        for j, valor in enumerate(fila[1:], start=1):
+            if valor == 0:  # valor 0 representa un asiento rojo
+                rojos.append((i, j))  # Guardamos la fila y la columna
+
+
+def verificar_rojo():
+    encontrar_rojo()
+    for x_r, y_r in rojos:
+        y_r += 1  # Verificamos el siguiente asiento en la misma fila
+        if y_r < len(asientos[x_r]):  # Aseguramos que no salimos de rango
+            if asientos[x_r][y_r] == 0:
+                asientos[x_r][y_r] = 2  # Cambiamos a blanco
+        else:
+            print("papas")
+
+
+def limpiar_asientos():
+    global asientos
+    asientos = [
+        [" ", "A", "  B", "  C", "", "  D", "  E", "  F"],
+        ["1", 2, 0, 2, 2, 0, 2],
+        ["2", 2, 0, 2, 2, 0, 2],
+        ["3", 2, 0, 2, 2, 0, 2],
+        ["4", 2, 0, 2, 2, 0, 2],
+        ["5", 2, 0, 2, 2, 0, 2],
+        ["6", 2, 0, 2, 2, 0, 2],
+    ]
+
+
+def asiento(id_vuelo):
+    try:
+        while True:
+            cargar_asientos_ocupados(id_vuelo)
+            imprimir_mapa()
+            personas = int(input("¿Cuántos boletos desea comprar? "))
+            if personas > 5 or personas <= 0:
+                print("No se pueden comprar esa cantidad de boletos.")
+            else:
+                buscar_vacios(asientos, 2, personas)
+                info_venta.append(personas)
+                if asientos_vacios:
+                    indice_asiento = asientos_vacios[0]
+                    asientos_vacios.clear()
+
+                    if indice_asiento:
+                        a = 0    
+                    else:
+                        print("No se encontró un asiento disponible.")
+                    asiento_disponible = buscar_asiento(asientos, 2)  # Busca asientos disponibles (valor 2)
+                    if asiento_disponible:
+                        print(f"Asiento disponible en fila {asiento_disponible[0]}, columna {asiento_disponible[1]}.")
+                        logica_asiento(personas, indice_asiento)
+                        verificar_rojo()
+                        rojos.clear()
+                        imprimir_mapa()
+                        break
+                    else:
+                        print("No hay asientos disponibles.")
+                    verificar_rojo()
+                    rojos.clear()
+                else:
+                    print("No hay suficientes asientos disponibles.")
+    except Exception as e:
+        print(f"Ocurrió un error: {e}")
+
+
+def menu_usuario():
+    while True:
+        print("\n╔══════════════════════ Menú pasajero ═══════════════════════╗")
+        print("║                                                            ║")
+        print("║                                                            ║")
+        print("║ 1. Buscar vuelos                                           ║")
+        print("║ 2. Comprar boletos                                         ║")
+        print("║ 0. Cerrar sesión                                           ║")
+        print("║                                                            ║")
+        print("╚════════════════════════════════════════════════════════════╝")
+
+        try:
+            opcion = int(input("Digite una opcion: "))
+        except ValueError:
+            print("Por favor, ingrese un número válido.")
+            continue
+
+        match opcion:
+            case 1:
+                buscar_vuelos()
+            case 2:
+                print("Aquí va la comprar de boletos y se asignan los asientos")
+            case 0:
+                print("Cerrando sesión...")
+                time.sleep(1)
+                menu_principal()
+            case _:
+                print("Opción no válida. Inténtelo de nuevo")
+
+
+def menu_admi():
+    while True:
+        print("\n╔══════════════════════ Menú pasajero ═══════════════════════╗")
+        print("║                                                            ║")
+        print("║                                                            ║")
+        print("║ 1. Creación de vuelos                                      ║")
+        print("║ 0. Cerrar sesión                                           ║")
+        print("║                                                            ║")
+        print("╚════════════════════════════════════════════════════════════╝")
+
+        try:
+            opcion = int(input("Digite una opcion: "))
+        except ValueError:
+            print("Por favor, ingrese un número válido.")
+            continue
+
+        match opcion:
+            case 1:
+                creacion_vuelos()
+            case 0:
+                print("Cerrando sesión...")
+                time.sleep(1)
+                menu_principal()
+            case _:
+                print("Opción no válida. Inténtelo de nuevo")
+
+
+def menu_principal():
+    while True:
+        print("\n╔══════════════════════ Menú principal ══════════════════════╗")
+        print("║                                                            ║")
+        print("║                    Menú de Opciones                        ║")
+        print("║                                                            ║")
+        print("║ 1. Inicio de sesión                                        ║")
+        print("║ 2. Registrar usuario                                       ║")
+        print("║ 3. Creacion de vuelos                                      ║")
+        print("║ 4. Buscar vuelos                                           ║")
+        print("║ 0. Salir                                                   ║")
+        print("║                                                            ║")
+        print("╚════════════════════════════════════════════════════════════╝")
+
+        try:
+            opcion = int(input("Digite una opcion: "))
+        except ValueError:
+            print("Por favor, ingrese un número válido.")
+            continue
+
+        match opcion:
+            case 1:
+                inicio_sesion()
+            case 2:
+                registro_usuarios()
+            case 3:
+                creacion_vuelos()
+            case 4:
+                buscar_vuelos()
+            case 0:
+                quit("Saliendo del programa...")
+            case _:
+                print("Opción no válida. Inténtelo de nuevo")
+
+
+menu_principal()
+# Trabajar en la linea 370 buscar_vuelos()
